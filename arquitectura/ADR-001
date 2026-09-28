@@ -1,0 +1,24 @@
+## ADR-001: Gestión e Integración Dinámica del Inventario en Tiempo Real
+
+* **Estatus:** Aceptado
+* **Atributos de Calidad Impactados:** Consistencia de Datos, Usabilidad / Operabilidad (UX), Fiabilidad.
+
+### Contexto
+El catálogo comercial maneja un inventario finito de unidades por producto. Permitir la compra de un artículo sin validar o reflejar el stock disponible genera inconsistencia de estado (*over-selling*) y degrada la confianza del usuario final. Para garantizar la integridad de las transacciones y brindar retroalimentación visual clara, el sistema requiere sincronizar el estado del inventario con la capa de presentación inmediatamente después de cada operación.
+
+### Driver Arquitectónico
+El inventario debe actualizarse y sincronizarse de manera automática y sincrónica tras la confirmación de cada compra exitosa, reflejando en tiempo real la cantidad exacta de unidades disponibles en la interfaz de usuario.
+
+### Decisión
+Se implementará un estado de inventario (*stock*) por producto dentro de la fuente de datos del catálogo (`catalogo.js`). Tras el procesamiento exitoso de una orden (`checkout.js`), el sistema descontará la cantidad correspondiente y re-renderizará el catálogo en la interfaz de usuario. 
+
+Adicionalmente, cuando el stock de un producto alcance cero (`0`), el sistema **deshabilitará automáticamente** la opción de compra visualmente en la interfaz, impidiendo transacciones inválidas.
+
+### Alternativa Descartada
+* **Inventario Estático o Sin Indicadores Visibles:** Se consideró mantener el catálogo como una lista estática de productos sin exponer las existencias al usuario. 
+  * *Razón de rechazo:* Obligaba a validar el stock únicamente al intentar procesar el pago, generando frustración en el usuario (mala UX) y un manejo ineficiente de errores en el checkout.
+
+### Lo que pagamos (Trade-offs)
+* **Acoplamiento Sincrónico de Estado:** La capa de checkout queda acoplada al ciclo de actualización visual del catálogo, requiriendo un refresco de interfaz (*re-render*) tras cada orden exitosa.
+* **Mantenimiento de Contadores:** Mayor complejidad lógica en el cliente para validar no solo el stock disponible en la base de datos, sino también la cantidad que el usuario añade dinámicamente a su carrito antes de confirmar la orden.
+* **Control de UI:** Se debe añadir y mantener lógica condicional en la interfaz para gestionar estados deshabilitados de botones y mensajes de stock agotado.

@@ -1,0 +1,23 @@
+## ADR-002: Historial de Compras en Perfil de Usuario para Tolerancia a Fallos en Notificaciones
+
+* **Estatus:** Aceptado
+* **Atributos de Calidad Impactados:** Tolerancia a Fallos (*Fault Tolerance*), Resiliencia, Usabilidad (UX / Transparencia), Disponibilidad de Información.
+
+### Contexto
+En el flujo transaccional habitual, la confirmación de una orden se delega al envío de un correo electrónico a través del módulo de comunicaciones. Sin embargo, ante una caída, lentitud o falla de dicho módulo, el cliente queda en un estado de incertidumbre sobre el resultado de su transacción, lo que puede inducir a duplicidad involuntaria de órdenes (*doble cobro*) o desconfianza en la plataforma. Se requiere un mecanismo de consulta directo en la aplicación que garantice la visibilidad del estado de la compra de forma independiente al canal de mensajería externa.
+
+### Driver Arquitectónico
+Si el servicio de comunicaciones falla o no responde, el sistema debe garantizar la persistencia de la orden y permitir al usuario consultar el estado y detalle de sus compras procesadas directamente desde la interfaz del sistema.
+
+### Decisión
+Se implementará un historial de compras accesible mediante una vista dedicada ("Mis Compras") en la interfaz de usuario. Las órdenes confirmadas se registrarán de forma sincrónica en el historial en memoria de `checkout.js` antes de intentar la llamada al módulo de comunicaciones (`comunicaciones.js`), envolviendo esta última en un bloque de captura de excepciones (`try...catch`). 
+
+De esta forma, la compra se considera exitosa y consultable de forma inmediata por el usuario mediante un identificador (correo) vinculado, independientemente del éxito o fracaso de la notificación por correo.
+
+### Alternativa Descartada
+* **Buscador General de Órdenes por Código de Rastreo (ID):** Se consideró un campo de búsqueda global donde el usuario ingresara manualmente un código de seguimiento generado tras el pago.
+  * *Razón de rechazo:* Representa una experiencia despersonalizada y propensa a errores (el usuario tendría que memorizar o anotar el ID en el momento). Se optó por centralizar las compras bajo la identidad/correo del usuario ("Mis Compras"), ofreciendo una experiencia fluida y natural.
+
+### Lo que pagamos (Trade-offs)
+* **Gestión de Estado de Sesión / Identidad:** Requiere mantener un registro de las compras vinculadas a una identidad (correo) en memoria en el cliente, aumentando la responsabilidad de la capa de control y renderizado (`app.js`).
+* **Manejo de Errores Silenciosos:** El módulo de checkout debe absorber los fallos de comunicaciones sin interrumpir el flujo del usuario, requiriendo un control explícito de excepciones y *logs* de advertencia en consola.

@@ -1,0 +1,23 @@
+## ADR-003: Aislamiento del Módulo de Catálogo/Inventario frente al Servicio de Comunicaciones
+
+* **Estatus:** Aceptado
+* **Atributos de Calidad Impactados:** Mantenibilidad, Modularidad, Bajo Acoplamiento (*Low Coupling*), Alta Cohesión.
+
+### Contexto
+El módulo de inventario y catálogo (`catalogo.js`) es el encargado exclusivo de gestionar los datos de los productos, precios y la disponibilidad física del stock. Permitir que este módulo emita alertas directas, notificaciones de falta de stock o promociones a través del módulo de comunicaciones (`comunicaciones.js`) generaría dependencias innecesarias y mezclaría responsabilidades de dominio (gestión de datos frente a transporte/salida de mensajes).
+
+### Driver Arquitectónico
+El módulo de catálogo/inventario no debe importar, consultar ni depender bajo ningún motivo del módulo de comunicaciones, garantizando un acoplamiento nulo y previniendo dependencias circulares.
+
+### Decisión
+Se prohíbe explícitamente cualquier relación de importación (`import`) o invocación directa desde `catalogo.js` hacia `comunicaciones.js`. 
+
+Cualquier notificación derivada de cambios en el inventario o procesos comerciales (como la confirmación de una orden o alerta de inventario) debe ser orquestada y canalizada exclusivamente a través del módulo de transacciones (`checkout.js`) o la capa de orquestación de interfaz (`app.js`).
+
+### Alternativa Descartada
+* **Notificaciones Directas desde Inventario:** Se consideró permitir que `catalogo.js` invocara directamente las funciones de notificación en casos puntuales (por ejemplo, para alertar automáticamente cuando un producto se quede sin existencias).
+  * *Razón de rechazo:* Incurre en una violación del principio de responsabilidad única (SRP), incrementa el acoplamiento y dificulta la reutilización o prueba aislada del catálogo.
+
+### Lo que pagamos (Trade-offs)
+* **Orquestación Centralizada:** Toda comunicación ligada indirectamente a eventos del catálogo requiere pasar obligatoriamente por un módulo intermedio (`checkout.js` o `app.js`), aumentando la delegación de responsabilidades a capas superiores.
+* **Pérdida de Reactividad Autónoma del Módulo:** El catálogo no puede reaccionar por sí mismo enviando avisos automáticos en segundo plano; requiere siempre un actor externo que ejecute la acción y coordine el envío del mensaje.
